@@ -34,8 +34,6 @@ public unsafe class LimbManager : IDisposable
     private bool OnlyRequest = false;
     private readonly List<HitResult> Results = [];
     private int? Next = null;
-    private int MinIndex = 0;
-    private bool RecordMinIndex = false;
     public int GamesToPlay = 0;
     public LimbConfig Cfg;
     private bool Exit = false;
@@ -132,8 +130,6 @@ public unsafe class LimbManager : IDisposable
             Results.Add(new(i, HitPower.Unobserved));
         }
         Next = null;
-        MinIndex = 0;
-        RecordMinIndex = false;
     }
 
     private int GetCursor()
@@ -360,7 +356,7 @@ public unsafe class LimbManager : IDisposable
 
     private int GetNextTargetCursorPos()
     {
-        for (var i = MinIndex; i < Results.Count; i++)
+        for (var i = 0; i < Results.Count; i++)
         {
             var current = Results[i];
             var prev = Results.SafeSelect(i - 1);
@@ -371,15 +367,20 @@ public unsafe class LimbManager : IDisposable
             }
         }
 
-        for (var i = MinIndex; i < Results.Count; i++)
+        for (var i = 0; i < Results.Count; i++)
         {
             var current = Results[i];
             var prev = Results.SafeSelect(i - 1);
             var next = Results.SafeSelect(i + 1);
-            if (current.Power == HitPower.Weak)
+            if (current.Power == HitPower.Weak && current.Position <= 50)
             {
-                if (prev?.Power == HitPower.Unobserved && i - 1 >= MinIndex) return prev.Position;
+                if (prev?.Power == HitPower.Unobserved) return prev.Position;
                 if (next?.Power == HitPower.Unobserved) return next.Position;
+            }
+            else if (current.Power == HitPower.Weak && current.Position > 50)
+            {
+                if (next?.Power == HitPower.Unobserved) return next.Position;
+                if (prev?.Power == HitPower.Unobserved) return prev.Position;
             }
         }
         foreach (var x in StartingPoints)
@@ -389,10 +390,8 @@ public unsafe class LimbManager : IDisposable
             var transformedPoints = adjustedPoints.Select(z => GetClosestResultPoint(z).Position).ToArray();
             var index = 0;// Random.Shared.Next(transformedPoints.Length);
             PluginLog.Debug($"Returning starting point {adjustedPoints[index]}->{transformedPoints[index]}");
-            if (StartingPoints.Length != transformedPoints.Length) RecordMinIndex = true;
             return transformedPoints[index];
         }
-        MinIndex = 0;
         var unobserveds = Results.Where(x => x.Power == HitPower.Unobserved).ToArray();
         if (unobserveds.Length == 0)
         {
@@ -400,6 +399,7 @@ public unsafe class LimbManager : IDisposable
             return -100;
         }
         var res = unobserveds[Random.Shared.Next(unobserveds.Length)].Position;
+
         PluginLog.Debug($"Returning random unobserved point {res}");
         return res;
     }
@@ -422,16 +422,6 @@ public unsafe class LimbManager : IDisposable
             var reader = new ReaderMiniGameBotanist(addon);
             var cursor = GetCursor();
             var item = Results.OrderBy(x => Math.Abs(x.Position - cursor)).First();
-            if (RecordMinIndex)
-            {
-                RecordMinIndex = false;
-                MinIndex = Results.IndexOf(item);
-            }
-            if (result < item.Power)
-            {
-                MinIndex = 0;
-                RecordMinIndex = false;
-            }
             item.Power = result;
             PluginLog.Debug($"{result}");
         }
@@ -474,10 +464,6 @@ public unsafe class LimbManager : IDisposable
         var delta = current - req;
         ImGuiEx.TextWrapped(delta > -1 ? ImGuiColors.ParsedGreen : (delta > -(req * 0.15f) ? ImGuiColors.DalamudYellow : ImGuiColors.DalamudRed), $"Required framerate: {req}\nYour framerate: {(int)current}");
         ImGuiEx.TextWrapped($"Reducing tolerance or difficulty will reduce required framerate.");
-        ImGui.SetNextItemWidth(100f);
-        save |= ImGui.DragInt($"Step", ref Cfg.Step, 0.05f);
-        ImGui.SameLine();
-        if (ImGui.Button("Default##2")) Cfg.Step = new LimbConfig().Step;
         ImGui.SetNextItemWidth(100f);
         save |= ImGui.DragInt($"Stop at remaining time with big win", ref Cfg.StopAt, 0.5f);
         ImGui.SetNextItemWidth(100f);
@@ -535,7 +521,7 @@ public unsafe class LimbManager : IDisposable
                         button->ClickAddonButton(addon);
                     }
                 }
-                ImGuiEx.Text($"Next: {Next}, MinIndex: {MinIndex}, rec={RecordMinIndex}");
+                ImGuiEx.Text($"Next: {Next}");
                 ImGuiEx.Text($"Starting points:\n{StartingPoints.Print(", ")}");
                 ImGuiEx.Text($"Results:\n{Results.Select(x => $"{x.Position}={x.Power}").Print("\n")}");
             }
