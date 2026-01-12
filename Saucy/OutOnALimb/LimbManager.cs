@@ -28,7 +28,7 @@ namespace Saucy.OutOnALimb;
 public unsafe class LimbManager : IDisposable
 {
     private uint OldState = 0;
-    private static readonly int[] StartingPoints = [20, 50, 80];
+    private static readonly int[] StartingPoints = [50, 25, 75];
     private int RequestInput = 0;
     private int? Request = null;
     private bool OnlyRequest = false;
@@ -125,10 +125,15 @@ public unsafe class LimbManager : IDisposable
     private void Reset()
     {
         Results.Clear();
-        for (var i = 0; i <= 100; i += Cfg.Step)
-        {
-            Results.Add(new(i, HitPower.Unobserved));
-        }
+        Results.Add(new(1, HitPower.Unobserved));
+        Results.Add(new(13, HitPower.Unobserved));
+        Results.Add(new(25, HitPower.Unobserved));
+        Results.Add(new(37, HitPower.Unobserved));
+        Results.Add(new(50, HitPower.Unobserved));
+        Results.Add(new(63, HitPower.Unobserved));
+        Results.Add(new(75, HitPower.Unobserved));
+        Results.Add(new(87, HitPower.Unobserved));
+        Results.Add(new(99, HitPower.Unobserved));
         Next = null;
     }
 
